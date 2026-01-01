@@ -1,3 +1,842 @@
-<html>
-  hi
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <!-- ✅ منع التكبير/التصغير -->
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,minimum-scale=1,user-scalable=no,viewport-fit=cover" />
+  <title>Wallet</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+  <style>
+    :root{
+      --bg:#0b1220;
+      --card:rgba(255,255,255,.06);
+      --stroke:rgba(255,255,255,.10);
+      --text:#e5e7eb;
+      --muted:#94a3b8;
+      --green:#22c55e;
+      --blue:#3b82f6;
+      --yellow:#f59e0b;
+      --red:#ef4444;
+
+      --r:14px;
+      --r2:12px;
+      --shadow:0 18px 55px rgba(0,0,0,.45);
+    }
+    *{box-sizing:border-box}
+
+    /* ✅ واجهة ثابتة: منع الانزلاق/السكرول + منع الـ bounce */
+    html, body{
+      height:100%;
+      overflow:hidden;
+      overscroll-behavior:none;
+      -webkit-overflow-scrolling: auto;
+      touch-action: none;
+    }
+
+    body{
+      margin:0;
+      font-family: system-ui,-apple-system,Segoe UI,Roboto,Arial;
+      color:var(--text);
+      background:
+        radial-gradient(900px 520px at 12% 12%, rgba(59,130,246,.12), transparent 60%),
+        radial-gradient(700px 520px at 88% 18%, rgba(34,197,94,.08), transparent 65%),
+        linear-gradient(180deg,#070b14,var(--bg));
+    }
+
+    .wrap{
+      max-width:920px;
+      margin:0 auto;
+      padding:16px 14px 26px;
+      height:100%;
+      overflow:hidden; /* ✅ منع أي سكرول داخل الـ wrap */
+    }
+
+    .top{
+      display:flex;align-items:center;justify-content:space-between;
+      padding:6px 2px 12px;
+    }
+    .brand{display:flex;align-items:center;gap:10px}
+    .orb{
+      width:38px;height:38px;border-radius:12px;
+      background: linear-gradient(135deg, rgba(59,130,246,.75), rgba(34,197,94,.35));
+      border:1px solid rgba(255,255,255,.08);
+      box-shadow: 0 14px 40px rgba(0,0,0,.35);
+    }
+    .brand b{display:block;font-weight:900;letter-spacing:.2px}
+    .brand small{color:var(--muted)}
+    .card{
+      background: rgba(255,255,255,.06);
+      border:1px solid rgba(255,255,255,.10);
+      border-radius:var(--r);
+      box-shadow:var(--shadow);
+      backdrop-filter: blur(10px);
+    }
+
+    .xbtn{
+      width:40px;height:40px;
+      display:grid;place-items:center;
+      border-radius:12px;
+      border:1px solid rgba(255,255,255,.10);
+      background: rgba(255,255,255,.05);
+      cursor:pointer;
+    }
+    .xbtn:active{transform: translateY(1px)}
+    .xbtn svg{width:18px;height:18px;opacity:.85}
+
+    .gate{min-height:72vh;display:grid;place-items:center;}
+    .gateInner{width:min(560px,100%); padding:16px}
+    .eyeBtn{
+      width:100%;
+      padding:16px 14px;
+      border-radius:14px;
+      border:1px solid rgba(255,255,255,.14);
+      background: rgba(59,130,246,.18);
+      color:#fff;
+      font-weight:900;
+      cursor:pointer;
+      display:flex;align-items:center;justify-content:center;gap:10px;
+    }
+    .eyeBtn:active{transform: translateY(1px)}
+    .eyeBtn:disabled{opacity:.45;cursor:not-allowed}
+    .hint{
+      margin-top:10px;
+      color:var(--muted);
+      font-size:12px;
+      line-height:1.7
+    }
+    .err{
+      margin-top:10px;
+      white-space:pre-wrap;word-break:break-word;
+      color:rgba(255,255,255,.90);
+      font-size:12px;
+      background:rgba(0,0,0,.18);
+      border:1px solid rgba(255,255,255,.10);
+      border-radius:12px;
+      padding:10px;
+      display:none;
+    }
+
+    .wallet{display:none; gap:12px}
+    .pad{padding:16px}
+
+    .balanceWrap{display:grid;place-items:center;text-align:center}
+    .balanceLabel{color:var(--muted);font-size:12px}
+
+    /* ✅ الرصيد التجريبي: على أقصى اليسار وبعيد */
+    .balanceLine{
+      position:relative;
+      width:100%;
+      display:flex;
+      align-items:flex-end;
+      justify-content:center;
+      min-height:66px;
+    }
+    .trialMini{
+      position:absolute;
+      left:12px;      /* ✅ أقصى اليسار */
+      bottom:8px;     /* ✅ بمحاذاة الرقم الكبير */
+      display:flex;
+      flex-direction:column;
+      align-items:flex-start;
+      text-align:left;
+      gap:3px;
+      margin:0;
+      padding:0;
+    }
+    .trialMiniNum{
+      font-size:20px;
+      font-weight:700;
+      color:var(--red);
+      line-height:1.1;
+    }
+    .trialMiniNote{
+      font-size:11px;
+      color:var(--muted);
+      line-height:1.2;
+      margin:0;
+    }
+
+    .balanceNum{
+      font-size:46px;font-weight:950;letter-spacing:.3px;
+      color:var(--green);
+      margin:8px 0 4px;
+    }
+    .subLines{
+      display:flex;gap:12px;flex-wrap:wrap;justify-content:center;
+      margin-top:6px;
+      font-size:12px;
+      color:var(--muted);
+    }
+    .subLines b{font-weight:900}
+    .frozen b{color:var(--yellow)}
+    .rate b{color:rgba(255,255,255,.92)}
+
+    .actions{
+      display:grid;grid-template-columns:repeat(3,1fr);
+      gap:10px;margin-top:14px;
+    }
+    .action{
+      border-radius:14px;
+      border:1px solid rgba(255,255,255,.10);
+      background: rgba(255,255,255,.04);
+      padding:14px 10px;
+      cursor:pointer;
+      display:flex;flex-direction:column;align-items:center;gap:10px;
+    }
+    .action:active{transform: translateY(1px)}
+
+    .ic{
+      width:auto;height:auto;border:0;background:transparent;
+      display:grid;place-items:center;
+      opacity:.92;
+    }
+    .ic svg{width:22px;height:22px}
+    .action b{font-weight:900;font-size:13px}
+    .action small{color:var(--muted);margin-top:-8px}
+
+    .sectionTitle{
+      display:flex;align-items:center;justify-content:space-between;
+      padding:0 4px;
+      margin-top:2px;
+      color:rgba(229,231,235,.92);
+      font-weight:900;
+      font-size:13px;
+    }
+    .list{
+      margin-top:10px;
+      display:flex;flex-direction:column;
+      gap:10px;
+
+      /* ✅ لأنك طلبت واجهة ثابتة: لا سكرول هنا */
+      overflow:hidden;
+    }
+    .item{
+      padding:12px 12px;
+      border-radius:14px;
+      border:1px solid rgba(255,255,255,.10);
+      background: rgba(255,255,255,.04);
+      display:flex;align-items:center;justify-content:space-between;gap:10px;
+    }
+    .item .left{display:flex;align-items:center;gap:10px}
+    .badge{
+      width:34px;height:34px;border-radius:12px;
+      border:1px solid rgba(255,255,255,.10);
+      background: rgba(0,0,0,.18);
+      display:grid;place-items:center;
+    }
+    .meta{display:flex;flex-direction:column;gap:2px}
+    .meta b{font-size:13px}
+    .meta small{color:var(--muted);font-size:12px}
+    .amt{font-weight:950;font-size:13px;white-space:nowrap}
+    .amt.out{color:rgba(229,231,235,.92)}
+    .amt.in{color:var(--green)}
+
+    .statusTag{
+      font-weight:900;
+      font-size:11px;
+      padding:3px 8px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.10);
+      background: rgba(0,0,0,.14);
+      margin-inline-start:6px;
+      white-space:nowrap;
+    }
+    .s0{color:var(--yellow)}
+    .s1{color:var(--green)}
+
+    .backdrop{
+      position:fixed;inset:0;background:rgba(0,0,0,.55);
+      display:none;align-items:flex-end;justify-content:center;
+      padding:12px 12px 18px;
+    }
+    .sheet{
+      width:min(760px, 100%);
+      border-radius:16px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(10,14,25,.96);
+      box-shadow: 0 40px 120px rgba(0,0,0,.55);
+      backdrop-filter: blur(14px);
+      overflow:hidden;
+    }
+    .head{
+      display:flex;align-items:center;justify-content:space-between;gap:10px;
+      padding:12px 12px 10px;border-bottom:1px solid rgba(255,255,255,.08);
+    }
+    .title{font-weight:900}
+    .close{
+      width:40px;height:40px;
+      display:grid;place-items:center;
+      border-radius:12px;
+      border:1px solid rgba(255,255,255,.10);
+      background: rgba(255,255,255,.06);
+      cursor:pointer;
+    }
+    .close svg{width:18px;height:18px;opacity:.85}
+    .body{padding:12px}
+    .field{
+      width:100%;
+      padding:12px 12px;border-radius:12px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(0,0,0,.20);
+      color: rgba(255,255,255,.92);
+      outline:none;font-size:14px;
+      font-family: ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;
+    }
+    .grid2{display:grid;gap:10px;grid-template-columns:1fr}
+    @media(min-width:720px){ .grid2{grid-template-columns:1fr 1fr} }
+    .btnRow{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+    .btn{
+      padding:12px 12px;border-radius:12px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(255,255,255,.06);
+      color: rgba(255,255,255,.92);
+      cursor:pointer;font-weight:900;font-size:13px;
+    }
+    .btn.primary{background: rgba(59,130,246,.18); border-color: rgba(59,130,246,.28)}
+    .btn.good{background: rgba(34,197,94,.14); border-color: rgba(34,197,94,.22)}
+    .maxLine{color:var(--muted);font-size:12px;margin-top:8px}
+    .maxLink{color:#93c5fd;cursor:pointer;font-weight:900}
+
+    .toastWrap{
+      position:fixed;
+      left:0; right:0;
+      bottom:16px;
+      display:flex;
+      justify-content:center;
+      pointer-events:none;
+      padding:0 12px;
+      z-index:9999;
+    }
+    .toast{
+      pointer-events:none;
+      opacity:0;
+      transform: translateY(10px);
+      transition: .18s ease;
+      max-width: 760px;
+      width: min(760px, 100%);
+      padding:12px 14px;
+      border-radius:12px;
+      border:1px solid rgba(255,255,255,.10);
+      background: rgba(10,14,25,.92);
+      color: rgba(255,255,255,.92);
+      box-shadow: 0 22px 70px rgba(0,0,0,.55);
+      display:flex;align-items:center;justify-content:space-between;gap:10px;
+      font-size:13px;
+      backdrop-filter: blur(10px);
+    }
+    .toast.show{
+      opacity:1;
+      transform: translateY(0);
+    }
+    .toast .tag{
+      font-weight:900;
+      font-size:12px;
+      opacity:.9;
+    }
+    .toast.info .tag{color:#93c5fd}
+    .toast.ok .tag{color: #86efac}
+    .toast.err .tag{color: #fca5a5}
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <div class="top">
+      <div class="brand">
+        <div class="orb"></div>
+        <div>
+          <b>Wallet</b>
+          <small>TON • Points</small>
+        </div>
+      </div>
+
+      <button class="xbtn" id="closeApp" aria-label="Close">
+        <svg viewBox="0 0 24 24" fill="none">
+          <path d="M6 6l12 12M18 6L6 18" stroke="white" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </button>
+    </div>
+
+    <div id="gate" class="gate">
+      <div class="card gateInner">
+        <button id="open" class="eyeBtn">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+            <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" stroke="white" stroke-width="2" opacity=".55"/>
+            <path d="M4 4l16 16" stroke="white" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+          فتح المحفظة
+        </button>
+        <div class="hint">لن يعمل خارج Telegram WebApp. افتحه من زر <b>web_app</b> داخل البوت.</div>
+        <div id="gateErr" class="err"></div>
+      </div>
+    </div>
+
+    <div id="wallet" class="wallet">
+      <div class="card pad">
+        <div class="balanceWrap">
+          <div class="balanceLabel">رصيدك</div>
+
+          <div class="balanceLine">
+            <!-- ✅ رصيد التجربة (يختفي إذا صفر) -->
+            <div id="trialBox" class="trialMini">
+              <div id="trial" class="trialMiniNum">—</div>
+              <div id="trialNote" class="trialMiniNote">يسترد لاحقا</div>
+            </div>
+
+            <div id="points" class="balanceNum">—</div>
+          </div>
+
+          <div class="subLines">
+            <!-- ✅ الرصيد المجمد (يختفي إذا صفر) -->
+            <div class="frozen" id="frozenRow">رصيد مجمّد: <b id="frozen">—</b></div>
+            <div class="rate">سعر النقطة: <b id="rate">—</b> TON</div>
+          </div>
+        </div>
+
+        <div class="actions">
+          <div class="action" id="add">
+            <div class="ic">
+              <svg viewBox="0 0 24 24" fill="none">
+                <path d="M12 3v10m0 0l-4-4m4 4l4-4" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M4 17h16" stroke="white" stroke-width="2" stroke-linecap="round"/>
+              </svg>
+            </div>
+            <b>إضافة نقاط</b>
+            <small>TON + Comment</small>
+          </div>
+
+          <div class="action" id="send">
+            <div class="ic">
+              <svg viewBox="0 0 24 24" fill="none">
+                <path d="M3 11l18-8-8 18-2-7-8-3z" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            <b>إرسال</b>
+            <small>Points</small>
+          </div>
+
+          <div class="action" id="receive">
+            <div class="ic">
+              <svg viewBox="0 0 24 24" fill="none">
+                <path d="M12 21V11m0 0l4 4m-4-4l-4 4" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M4 7h16" stroke="white" stroke-width="2" stroke-linecap="round"/>
+              </svg>
+            </div>
+            <b>استلام</b>
+            <small>Code</small>
+          </div>
+        </div>
+      </div>
+
+      <div class="sectionTitle">
+        <span>آخر العمليات</span>
+      </div>
+
+      <div id="history" class="list"></div>
+    </div>
+  </div>
+
+  <div id="backdrop" class="backdrop">
+    <div class="sheet">
+      <div class="head">
+        <div id="sheetTitle" class="title">—</div>
+        <button class="close" id="closeSheet" aria-label="Close sheet">
+          <svg viewBox="0 0 24 24" fill="none">
+            <path d="M6 6l12 12M18 6L6 18" stroke="white" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </button>
+      </div>
+      <div id="sheetBody" class="body"></div>
+    </div>
+  </div>
+
+  <div class="toastWrap">
+    <div id="toast" class="toast info">
+      <span class="tag">INFO</span>
+      <span id="toastMsg">—</span>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = "https://ao3.fourwordbefore.space";
+
+    const gate = document.getElementById("gate");
+    const wallet = document.getElementById("wallet");
+    const gateErr = document.getElementById("gateErr");
+
+    const pointsEl = document.getElementById("points");
+
+    const trialBox = document.getElementById("trialBox");
+    const trialEl = document.getElementById("trial");
+    const trialNoteEl = document.getElementById("trialNote");
+
+    const frozenRow = document.getElementById("frozenRow");
+    const frozenEl = document.getElementById("frozen");
+
+    const rateEl = document.getElementById("rate");
+    const historyEl = document.getElementById("history");
+
+    const backdrop = document.getElementById("backdrop");
+    const sheetTitle = document.getElementById("sheetTitle");
+    const sheetBody = document.getElementById("sheetBody");
+
+    const toastEl = document.getElementById("toast");
+    const toastMsgEl = document.getElementById("toastMsg");
+    let toastTimer = null;
+
+    let state = {
+      user_id: 0,
+      points: 0,
+      frozen: 0,
+      trial: 0,
+      trial_note: "يسترد لاحقا",
+      rate: 0,
+      ton_address: ""
+    };
+
+    function tg(){ return (window.Telegram && window.Telegram.WebApp) ? window.Telegram.WebApp : null; }
+    function joinUrl(base, path){
+      if (base.endsWith("/") && path.startsWith("/")) return base.slice(0,-1)+path;
+      if (!base.endsWith("/") && !path.startsWith("/")) return base+"/"+path;
+      return base+path;
+    }
+    function showGateErr(msg){
+      gateErr.style.display = "block";
+      gateErr.textContent = msg;
+    }
+
+    function toast(msg, kind="info", ms=2200){
+      clearTimeout(toastTimer);
+      toastEl.className = "toast " + kind + " show";
+      toastEl.querySelector(".tag").textContent = (kind === "ok") ? "OK" : (kind === "err") ? "ERROR" : "INFO";
+      toastMsgEl.textContent = msg;
+      toastTimer = setTimeout(()=> toastEl.className = "toast " + kind, ms);
+    }
+
+    async function apiFetch(path, {method="GET", body=null} = {}){
+      const t = tg();
+      if (!t || !t.initData || t.initData.length === 0) {
+        throw new Error("initData غير موجود. افتحها من Telegram عبر زر web_app.");
+      }
+
+      const url = joinUrl(API_BASE, path) + (path.includes("?") ? "&" : "?") + "t=" + Date.now();
+
+      const res = await fetch(url, {
+        method,
+        cache: "no-store",
+        headers: {
+          "Content-Type":"application/json",
+          "X-Telegram-Init-Data": t.initData,
+          "ngrok-skip-browser-warning": "1"
+        },
+        body: body ? JSON.stringify(body) : null
+      });
+
+      const ct = (res.headers.get("content-type")||"").toLowerCase();
+      if (!ct.includes("application/json")) {
+        const text = await res.text().catch(()=> "");
+        if (text.includes("ERR_NGROK_6024") || text.includes("ngrok")) {
+          throw new Error("ngrok يمنع الوصول (ERR_NGROK_6024).");
+        }
+        throw new Error("الـ API رجّع HTML بدل JSON. تأكد من API_BASE.");
+      }
+
+      const data = await res.json().catch(()=>null);
+
+      const detail =
+        (data && typeof data.detail === "string" && data.detail.trim())
+          ? data.detail.trim()
+          : "حدث خطأ غير متوقع";
+
+      if (res.status === 401 || res.status === 403) throw new Error(detail);
+      if (!res.ok) throw new Error(detail);
+
+      return data;
+    }
+
+    async function copy(text){
+      try{
+        await navigator.clipboard.writeText(text);
+        const t = tg();
+        if (t && t.HapticFeedback) t.HapticFeedback.impactOccurred("light");
+        toast("تم النسخ", "ok", 1400);
+      }catch{
+        toast("تعذّر النسخ", "err");
+      }
+    }
+
+    function openSheet(title, html){
+      sheetTitle.textContent = title;
+      sheetBody.innerHTML = html;
+      backdrop.style.display = "flex";
+    }
+    function closeSheet(){
+      backdrop.style.display = "none";
+      sheetBody.innerHTML = "";
+    }
+    document.getElementById("closeSheet").onclick = closeSheet;
+    backdrop.addEventListener("click", (e)=>{ if(e.target === backdrop) closeSheet(); });
+
+    function fmtTime(ts){
+      try { return new Date(ts*1000).toLocaleString("ar"); }
+      catch { return String(ts); }
+    }
+
+    function escapeHtml(s){
+      return String(s || "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function render(){
+      pointsEl.textContent = state.points;
+      rateEl.textContent = String(state.rate);
+
+      // ✅ رصيد التجربة: إذا صفر لا يظهر
+      if (trialBox) {
+        if (state.trial > 0) {
+          trialBox.style.display = "flex";
+          if (trialEl) trialEl.textContent = String(state.trial);
+          if (trialNoteEl) trialNoteEl.textContent = state.trial_note || "يسترد لاحقا";
+        } else {
+          trialBox.style.display = "none";
+        }
+      }
+
+      // ✅ الرصيد المجمد: إذا صفر لا يظهر
+      if (frozenRow) {
+        if (state.frozen > 0) {
+          frozenRow.style.display = "";
+          frozenEl.textContent = String(state.frozen);
+        } else {
+          frozenRow.style.display = "none";
+        }
+      }
+    }
+
+    function renderHistory(items){
+      if (!items || items.length === 0){
+        historyEl.innerHTML = `<div class="item"><div class="meta"><b>لا يوجد عمليات بعد</b><small>ستظهر هنا الإرسال/الاستلام/الإضافة/الأجور</small></div></div>`;
+        return;
+      }
+
+      historyEl.innerHTML = items.map(t => {
+        if (t.kind === "fee") {
+          const note = escapeHtml(t.note || "—");
+          return `
+            <div class="item">
+              <div class="left">
+                <div class="badge">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                    <path d="M7 7h10M7 17h10" stroke="white" stroke-width="2" stroke-linecap="round"/>
+                    <path d="M12 3v18" stroke="white" stroke-width="2" opacity=".35"/>
+                  </svg>
+                </div>
+                <div class="meta">
+                  <b>أجور مهمة</b>
+                  <small>${note} • ${fmtTime(t.ts)}</small>
+                </div>
+              </div>
+              <div class="amt out">-${t.amount}</div>
+            </div>
+          `;
+        }
+
+        if (t.kind === "add") {
+          return `
+            <div class="item">
+              <div class="left">
+                <div class="badge">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                    <path d="M12 3v10m0 0l-4-4m4 4l4-4" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M4 17h16" stroke="white" stroke-width="2" stroke-linecap="round"/>
+                  </svg>
+                </div>
+                <div class="meta">
+                  <b>إضافة نقاط</b>
+                  <small>${fmtTime(t.ts)}</small>
+                </div>
+              </div>
+              <div class="amt in">+${t.amount}</div>
+            </div>
+          `;
+        }
+
+        const isOut = t.from_uid === state.user_id;
+        const title = isOut ? "إرسال نقاط" : "استلام نقاط";
+        const sub = isOut ? `إلى UID: ${t.to_uid}` : `من UID: ${t.from_uid}`;
+        const amtCls = isOut ? "out" : "in";
+        const sign = isOut ? "-" : "+";
+
+        let stHtml = "";
+        if (isOut && typeof t.status === "number") {
+          if (t.status === 0) stHtml = `<span class="statusTag s0">جار الإرسال</span>`;
+          else if (t.status === 1) stHtml = `<span class="statusTag s1">مكتمل</span>`;
+          else stHtml = `<span class="statusTag">${t.status}</span>`;
+        }
+
+        const badge = isOut
+          ? `<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M3 11l18-8-8 18-2-7-8-3z" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`
+          : `<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 21V11m0 0l4 4m-4-4l-4 4" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 7h16" stroke="white" stroke-width="2" stroke-linecap="round"/></svg>`;
+
+        return `
+          <div class="item">
+            <div class="left">
+              <div class="badge">${badge}</div>
+              <div class="meta">
+                <b>${title} ${stHtml}</b>
+                <small>${sub} • ${fmtTime(t.ts)}</small>
+              </div>
+            </div>
+            <div class="amt ${amtCls}">${sign}${t.amount}</div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    async function loadHistory(){
+      const h = await apiFetch("/api/history");
+      renderHistory(h.items || []);
+    }
+
+    async function openWallet(){
+      const boot = await apiFetch("/api/bootstrap");
+
+      state.user_id = Number(boot.user_id || 0);
+      state.points  = Math.max(0, Number(boot.points || 0));
+      state.frozen  = Math.max(0, Number(boot.frozen_points || 0));
+      state.trial   = Math.max(0, Number(boot.trial_points || 0));
+      state.trial_note = boot.trial_note || "يسترد لاحقا";
+      state.rate    = Number(boot.point_price_ton || 0);
+      state.ton_address = boot.ton_address || "";
+      render();
+
+      gate.style.display = "none";
+      wallet.style.display = "grid";
+
+      loadHistory().catch(() => renderHistory([]));
+    }
+
+    document.getElementById("add").onclick = async ()=>{
+      try{
+        const r = await apiFetch("/api/add/request", {method:"POST"});
+        openSheet("إضافة نقاط (TON)", `
+          <div class="grid2">
+            <div>
+              <div class="hint">عنوان محفظة TON</div>
+              <input class="field" readonly value="${r.ton_address}">
+              <div class="btnRow"><button class="btn primary" id="c1">نسخ العنوان</button></div>
+              <div class="hint" style="margin-top:10px">ضع الكود في خانة Comment/Message عند التحويل.</div>
+            </div>
+            <div>
+              <div class="hint">كود التعليق الخاص بك</div>
+              <input class="field" readonly value="${r.deposit_code}">
+              <div class="btnRow"><button class="btn primary" id="c2">نسخ الكود</button></div>
+              <div class="hint" style="margin-top:10px"></div>
+            </div>
+          </div>
+        `);
+        document.getElementById("c1").onclick = ()=> copy(r.ton_address);
+        document.getElementById("c2").onclick = ()=> copy(r.deposit_code);
+      }catch(e){
+        toast(String(e.message||e), "err");
+      }
+    };
+
+    document.getElementById("receive").onclick = async ()=>{
+      try{
+        const r = await apiFetch("/api/receive/request", {method:"POST"});
+        openSheet("استلام نقاط", `
+          <div>
+            <div class="hint">أرسل هذا الكود للمُرسل (ثابت ويمكن استخدامه)</div>
+            <input class="field" readonly value="${r.receive_code}">
+            <div class="btnRow"><button class="btn good" id="cr">نسخ كود الاستلام</button></div>
+            <div class="hint" style="margin-top:10px"></div>
+          </div>
+        `);
+        document.getElementById("cr").onclick = ()=> copy(r.receive_code);
+      }catch(e){
+        toast(String(e.message||e), "err");
+      }
+    };
+
+    document.getElementById("send").onclick = async ()=>{
+      openSheet("إرسال نقاط", `
+        <div>
+          <div class="hint">كود المستلم (RCV-XXXX)</div>
+          <input id="to" class="field" placeholder="RCV-XXXXXXXX">
+
+          <div class="hint" style="margin-top:10px">عدد النقاط</div>
+          <input id="amt" class="field" type="number" min="13" inputmode="numeric" placeholder="مثال: 25">
+          <div class="maxLine">Max <span class="maxLink" id="max">${state.points}</span></div>
+
+          <div class="btnRow">
+            <button class="btn primary" id="go">تسجيل طلب الإرسال</button>
+            <button class="btn" id="cancel">إلغاء</button>
+          </div>
+        </div>
+      `);
+
+      document.getElementById("cancel").onclick = closeSheet;
+      document.getElementById("max").onclick = ()=> { document.getElementById("amt").value = String(state.points); };
+
+      document.getElementById("go").onclick = async ()=>{
+        try{
+          const recipient = (document.getElementById("to").value || "").trim().toUpperCase();
+          const amount = parseInt(document.getElementById("amt").value || "0", 10);
+
+          if (!recipient.startsWith("RCV-")) throw new Error("كود المستلم غير صحيح");
+          if (amount < 13) throw new Error("الحد الأدنى للإرسال هو 13 نقطة");
+          if (amount > state.points) throw new Error("لا يوجد رصيد كافي");
+
+          toast("جاري تسجيل الطلب…", "info", 1200);
+
+          await apiFetch("/api/send", {method:"POST", body:{recipient_code: recipient, amount}});
+
+          await loadHistory();
+          closeSheet();
+
+          toast("تم تسجيل طلب الإرسال ✅", "ok");
+        }catch(e){
+          toast(String(e.message||e), "err");
+        }
+      };
+    };
+
+    document.getElementById("closeApp").onclick = ()=>{
+      const t = tg();
+      if (t) t.close();
+      else window.close();
+    };
+
+    (function init(){
+      const t = tg();
+      if (!t){
+        document.getElementById("open").disabled = true;
+        showGateErr("لا يمكن فتحها خارج Telegram WebApp.");
+        return;
+      }
+      t.ready(); t.expand();
+      if (!t.initData || t.initData.length === 0){
+        document.getElementById("open").disabled = true;
+        showGateErr("افتح الصفحة من زر web_app داخل البوت (ليس كرابط).");
+      }
+    })();
+
+    document.getElementById("open").onclick = async ()=>{
+      try{ await openWallet(); }
+      catch(e){ showGateErr(String(e.message||e)); }
+    };
+
+    /* ✅ منع Gesture Zoom خصوصاً على iOS */
+    document.addEventListener("gesturestart", (e)=>{ e.preventDefault(); });
+    document.addEventListener("gesturechange", (e)=>{ e.preventDefault(); });
+    document.addEventListener("gestureend", (e)=>{ e.preventDefault(); });
+    document.addEventListener("touchmove", (e)=>{ e.preventDefault(); }, {passive:false});
+  </script>
+</body>
 </html>
