@@ -2,9 +2,8 @@
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="utf-8" />
-  <!-- ✅ منع التكبير/التصغير -->
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,minimum-scale=1,user-scalable=no,viewport-fit=cover" />
-  <title>Wallet</title>
+  <title>محفظة بلي</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
   <style>
@@ -20,12 +19,10 @@
       --red:#ef4444;
 
       --r:14px;
-      --r2:12px;
       --shadow:0 18px 55px rgba(0,0,0,.45);
     }
     *{box-sizing:border-box}
 
-    /* ✅ واجهة ثابتة: منع الانزلاق/السكرول + منع الـ bounce */
     html, body{
       height:100%;
       overflow:hidden;
@@ -49,7 +46,7 @@
       margin:0 auto;
       padding:16px 14px 26px;
       height:100%;
-      overflow:hidden; /* ✅ منع أي سكرول داخل الـ wrap */
+      overflow:hidden;
     }
 
     .top{
@@ -123,7 +120,6 @@
     .balanceWrap{display:grid;place-items:center;text-align:center}
     .balanceLabel{color:var(--muted);font-size:12px}
 
-    /* ✅ الرصيد التجريبي: على أقصى اليسار وبعيد */
     .balanceLine{
       position:relative;
       width:100%;
@@ -134,8 +130,8 @@
     }
     .trialMini{
       position:absolute;
-      left:12px;      /* ✅ أقصى اليسار */
-      bottom:8px;     /* ✅ بمحاذاة الرقم الكبير */
+      left:12px;
+      bottom:8px;
       display:flex;
       flex-direction:column;
       align-items:flex-start;
@@ -207,8 +203,6 @@
       margin-top:10px;
       display:flex;flex-direction:column;
       gap:10px;
-
-      /* ✅ لأنك طلبت واجهة ثابتة: لا سكرول هنا */
       overflow:hidden;
     }
     .item{
@@ -298,6 +292,15 @@
     .maxLine{color:var(--muted);font-size:12px;margin-top:8px}
     .maxLink{color:#93c5fd;cursor:pointer;font-weight:900}
 
+    .pillRow{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+    .pill{
+      padding:8px 10px;border-radius:999px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(255,255,255,.06);
+      cursor:pointer;font-weight:900;font-size:12px;
+    }
+    .pill:active{transform: translateY(1px)}
+
     .toastWrap{
       position:fixed;
       left:0; right:0;
@@ -346,8 +349,8 @@
       <div class="brand">
         <div class="orb"></div>
         <div>
-          <b>Wallet</b>
-          <small>TON • Points</small>
+          <b id="brandTitle">محفظة بلي</b>
+          <small>TON • بلي</small>
         </div>
       </div>
 
@@ -375,10 +378,9 @@
     <div id="wallet" class="wallet">
       <div class="card pad">
         <div class="balanceWrap">
-          <div class="balanceLabel">رصيدك</div>
+          <div class="balanceLabel">رصيدك (بلي)</div>
 
           <div class="balanceLine">
-            <!-- ✅ رصيد التجربة (يختفي إذا صفر) -->
             <div id="trialBox" class="trialMini">
               <div id="trial" class="trialMiniNum">—</div>
               <div id="trialNote" class="trialMiniNote">يسترد لاحقا</div>
@@ -388,9 +390,8 @@
           </div>
 
           <div class="subLines">
-            <!-- ✅ الرصيد المجمد (يختفي إذا صفر) -->
             <div class="frozen" id="frozenRow">رصيد مجمّد: <b id="frozen">—</b></div>
-            <div class="rate">سعر النقطة: <b id="rate">—</b> TON</div>
+            <div class="rate">سعر البلي: <b id="rate">—</b> USD</div>
           </div>
         </div>
 
@@ -402,7 +403,7 @@
                 <path d="M4 17h16" stroke="white" stroke-width="2" stroke-linecap="round"/>
               </svg>
             </div>
-            <b>إضافة نقاط</b>
+            <b>إضافة بلي</b>
             <small>TON + Comment</small>
           </div>
 
@@ -413,7 +414,7 @@
               </svg>
             </div>
             <b>إرسال</b>
-            <small>Points</small>
+            <small>بلي</small>
           </div>
 
           <div class="action" id="receive">
@@ -459,7 +460,28 @@
   </div>
 
   <script>
-    const API_BASE = "https://ao3.fourwordbefore.space";
+    // ====== Load API config from api.json ======
+    let API_BASE = "";
+    let TON_PRICE_URL = "";
+
+    async function loadApiJson() {
+      const res = await fetch("api.json", { cache: "no-store" });
+      if (!res.ok) throw new Error("api.json not found");
+      const cfg = await res.json();
+      API_BASE = String(cfg.API_BASE || "").replace(/\/$/, "");
+      TON_PRICE_URL = String(cfg.TON_PRICE_URL || "").trim();
+      if (!API_BASE) throw new Error("API_BASE missing in api.json");
+      if (!TON_PRICE_URL) throw new Error("TON_PRICE_URL missing in api.json");
+    }
+
+    async function fetchTonUsd() {
+      const res = await fetch(TON_PRICE_URL, { cache: "no-store" });
+      if (!res.ok) throw new Error("Failed to fetch TON price");
+      const data = await res.json();
+      const usd = data?.["the-open-network"]?.usd;
+      if (!usd || typeof usd !== "number") throw new Error("TON USD price missing");
+      return usd;
+    }
 
     const gate = document.getElementById("gate");
     const wallet = document.getElementById("wallet");
@@ -491,7 +513,11 @@
       frozen: 0,
       trial: 0,
       trial_note: "يسترد لاحقا",
-      rate: 0,
+
+      point_name: "بلي",
+      point_price_usd: 0,   // من Mongo عبر bootstrap
+      min_add_points: 10,   // من Mongo عبر bootstrap
+
       ton_address: ""
     };
 
@@ -519,6 +545,7 @@
       if (!t || !t.initData || t.initData.length === 0) {
         throw new Error("initData غير موجود. افتحها من Telegram عبر زر web_app.");
       }
+      if (!API_BASE) await loadApiJson();
 
       const url = joinUrl(API_BASE, path) + (path.includes("?") ? "&" : "?") + "t=" + Date.now();
 
@@ -527,8 +554,7 @@
         cache: "no-store",
         headers: {
           "Content-Type":"application/json",
-          "X-Telegram-Init-Data": t.initData,
-          "ngrok-skip-browser-warning": "1"
+          "X-Telegram-Init-Data": t.initData
         },
         body: body ? JSON.stringify(body) : null
       });
@@ -536,10 +562,7 @@
       const ct = (res.headers.get("content-type")||"").toLowerCase();
       if (!ct.includes("application/json")) {
         const text = await res.text().catch(()=> "");
-        if (text.includes("ERR_NGROK_6024") || text.includes("ngrok")) {
-          throw new Error("ngrok يمنع الوصول (ERR_NGROK_6024).");
-        }
-        throw new Error("الـ API رجّع HTML بدل JSON. تأكد من API_BASE.");
+        throw new Error("الـ API رجّع HTML بدل JSON. تأكد من api.json");
       }
 
       const data = await res.json().catch(()=>null);
@@ -594,9 +617,8 @@
 
     function render(){
       pointsEl.textContent = state.points;
-      rateEl.textContent = String(state.rate);
+      rateEl.textContent = state.point_price_usd ? state.point_price_usd.toFixed(4) : "—";
 
-      // ✅ رصيد التجربة: إذا صفر لا يظهر
       if (trialBox) {
         if (state.trial > 0) {
           trialBox.style.display = "flex";
@@ -607,7 +629,6 @@
         }
       }
 
-      // ✅ الرصيد المجمد: إذا صفر لا يظهر
       if (frozenRow) {
         if (state.frozen > 0) {
           frozenRow.style.display = "";
@@ -657,7 +678,7 @@
                   </svg>
                 </div>
                 <div class="meta">
-                  <b>إضافة نقاط</b>
+                  <b>إضافة بلي</b>
                   <small>${fmtTime(t.ts)}</small>
                 </div>
               </div>
@@ -667,7 +688,7 @@
         }
 
         const isOut = t.from_uid === state.user_id;
-        const title = isOut ? "إرسال نقاط" : "استلام نقاط";
+        const title = isOut ? "إرسال بلي" : "استلام بلي";
         const sub = isOut ? `إلى UID: ${t.to_uid}` : `من UID: ${t.from_uid}`;
         const amtCls = isOut ? "out" : "in";
         const sign = isOut ? "-" : "+";
@@ -711,8 +732,12 @@
       state.frozen  = Math.max(0, Number(boot.frozen_points || 0));
       state.trial   = Math.max(0, Number(boot.trial_points || 0));
       state.trial_note = boot.trial_note || "يسترد لاحقا";
-      state.rate    = Number(boot.point_price_ton || 0);
       state.ton_address = boot.ton_address || "";
+
+      state.point_name = boot.point_name || "بلي";
+      state.point_price_usd = Number(boot.point_price_usd || 0);
+      state.min_add_points = Number(boot.min_add_points || 10);
+
       render();
 
       gate.style.display = "none";
@@ -721,41 +746,129 @@
       loadHistory().catch(() => renderHistory([]));
     }
 
-    document.getElementById("add").onclick = async ()=>{
+    // ====== Add points (Calculator-like wallet sheet) ======
+    document.getElementById("add").onclick = async ()=> {
       try{
+        if (!state.point_price_usd || state.point_price_usd <= 0) {
+          throw new Error("سعر البلي بالدولار غير متوفر حاليًا (من السيرفر).");
+        }
+
         const r = await apiFetch("/api/add/request", {method:"POST"});
-        openSheet("إضافة نقاط (TON)", `
+        let tonUsd = await fetchTonUsd();
+
+        const name = state.point_name || "بلي";
+        const minPts = Math.max(1, Number(state.min_add_points || 10));
+
+        openSheet(`شراء ${name}`, `
           <div class="grid2">
+            <div>
+              <div class="hint">عدد ${name} (الحد الأدنى: ${minPts})</div>
+              <input id="buyPts" class="field" type="number" inputmode="numeric" min="${minPts}" placeholder="مثال: 50">
+
+              <div class="pillRow">
+                <button class="pill" id="p10">${minPts}</button>
+                <button class="pill" id="p50">50</button>
+                <button class="pill" id="p100">100</button>
+                <button class="pill" id="p250">250</button>
+              </div>
+
+              <div class="hint" style="margin-top:10px">سعر ${name}</div>
+              <input class="field" readonly value="${state.point_price_usd.toFixed(4)} USD / ${name}">
+
+              <div class="hint" style="margin-top:10px">سعر TON الآن</div>
+              <input id="tonUsd" class="field" readonly value="${tonUsd.toFixed(4)} USD">
+
+              <div class="hint" style="margin-top:10px">الإجمالي بالدولار</div>
+              <input id="totalUsd" class="field" readonly value="—">
+
+              <div class="hint" style="margin-top:10px">المبلغ المطلوب إرساله (TON)</div>
+              <input id="needTon" class="field" readonly value="—">
+
+              <div class="btnRow">
+                <button class="btn primary" id="refreshTon">تحديث سعر TON</button>
+              </div>
+
+              <div class="hint" style="margin-top:10px">
+                الحساب تقديري حسب سعر TON الحالي.
+              </div>
+            </div>
+
             <div>
               <div class="hint">عنوان محفظة TON</div>
               <input class="field" readonly value="${r.ton_address}">
               <div class="btnRow"><button class="btn primary" id="c1">نسخ العنوان</button></div>
-              <div class="hint" style="margin-top:10px">ضع الكود في خانة Comment/Message عند التحويل.</div>
-            </div>
-            <div>
-              <div class="hint">كود التعليق الخاص بك</div>
+
+              <div class="hint" style="margin-top:10px">ضع هذا الكود في خانة Comment/Message</div>
               <input class="field" readonly value="${r.deposit_code}">
-              <div class="btnRow"><button class="btn primary" id="c2">نسخ الكود</button></div>
-              <div class="hint" style="margin-top:10px"></div>
+              <div class="btnRow"><button class="btn good" id="c2">نسخ كود التعليق</button></div>
+
+              <div class="hint" style="margin-top:10px">
+                بعد التحويل، تتم إضافة ${name} حسب المعالجة في السيرفر.
+              </div>
             </div>
           </div>
         `);
+
         document.getElementById("c1").onclick = ()=> copy(r.ton_address);
         document.getElementById("c2").onclick = ()=> copy(r.deposit_code);
+
+        function recalc() {
+          const pts = Number(document.getElementById("buyPts").value || 0);
+          const totalUsdEl = document.getElementById("totalUsd");
+          const needTonEl = document.getElementById("needTon");
+
+          if (!pts) {
+            totalUsdEl.value = "—";
+            needTonEl.value = "—";
+            return;
+          }
+          if (pts < minPts) {
+            totalUsdEl.value = "أقل من الحد الأدنى";
+            needTonEl.value = "—";
+            return;
+          }
+
+          const totalUsd = pts * state.point_price_usd;
+          const needTon = totalUsd / tonUsd;
+
+          totalUsdEl.value = totalUsd.toFixed(4) + " USD";
+          needTonEl.value = needTon.toFixed(6) + " TON";
+        }
+
+        const buyPts = document.getElementById("buyPts");
+        buyPts.addEventListener("input", recalc);
+
+        document.getElementById("p10").onclick = ()=> { buyPts.value = String(minPts); recalc(); };
+        document.getElementById("p50").onclick = ()=> { buyPts.value = "50"; recalc(); };
+        document.getElementById("p100").onclick = ()=> { buyPts.value = "100"; recalc(); };
+        document.getElementById("p250").onclick = ()=> { buyPts.value = "250"; recalc(); };
+
+        document.getElementById("refreshTon").onclick = async ()=> {
+          try{
+            toast("جاري تحديث سعر TON…", "info", 1200);
+            tonUsd = await fetchTonUsd();
+            document.getElementById("tonUsd").value = tonUsd.toFixed(4) + " USD";
+            recalc();
+            toast("تم التحديث ✅", "ok", 1200);
+          }catch{
+            toast("فشل تحديث سعر TON", "err");
+          }
+        };
+
       }catch(e){
         toast(String(e.message||e), "err");
       }
     };
 
-    document.getElementById("receive").onclick = async ()=>{
+    // Receive
+    document.getElementById("receive").onclick = async ()=> {
       try{
         const r = await apiFetch("/api/receive/request", {method:"POST"});
-        openSheet("استلام نقاط", `
+        openSheet("استلام بلي", `
           <div>
             <div class="hint">أرسل هذا الكود للمُرسل (ثابت ويمكن استخدامه)</div>
             <input class="field" readonly value="${r.receive_code}">
             <div class="btnRow"><button class="btn good" id="cr">نسخ كود الاستلام</button></div>
-            <div class="hint" style="margin-top:10px"></div>
           </div>
         `);
         document.getElementById("cr").onclick = ()=> copy(r.receive_code);
@@ -764,13 +877,14 @@
       }
     };
 
-    document.getElementById("send").onclick = async ()=>{
-      openSheet("إرسال نقاط", `
+    // Send (نفس منطقك القديم، الحد الأدنى الحالي بقي 13 هنا)
+    document.getElementById("send").onclick = async ()=> {
+      openSheet("إرسال بلي", `
         <div>
           <div class="hint">كود المستلم (RCV-XXXX)</div>
           <input id="to" class="field" placeholder="RCV-XXXXXXXX">
 
-          <div class="hint" style="margin-top:10px">عدد النقاط</div>
+          <div class="hint" style="margin-top:10px">عدد البلي</div>
           <input id="amt" class="field" type="number" min="13" inputmode="numeric" placeholder="مثال: 25">
           <div class="maxLine">Max <span class="maxLink" id="max">${state.points}</span></div>
 
@@ -784,22 +898,19 @@
       document.getElementById("cancel").onclick = closeSheet;
       document.getElementById("max").onclick = ()=> { document.getElementById("amt").value = String(state.points); };
 
-      document.getElementById("go").onclick = async ()=>{
+      document.getElementById("go").onclick = async ()=> {
         try{
           const recipient = (document.getElementById("to").value || "").trim().toUpperCase();
           const amount = parseInt(document.getElementById("amt").value || "0", 10);
 
           if (!recipient.startsWith("RCV-")) throw new Error("كود المستلم غير صحيح");
-          if (amount < 13) throw new Error("الحد الأدنى للإرسال هو 13 نقطة");
+          if (amount < 13) throw new Error("الحد الأدنى للإرسال هو 13 بلي");
           if (amount > state.points) throw new Error("لا يوجد رصيد كافي");
 
           toast("جاري تسجيل الطلب…", "info", 1200);
-
           await apiFetch("/api/send", {method:"POST", body:{recipient_code: recipient, amount}});
-
           await loadHistory();
           closeSheet();
-
           toast("تم تسجيل طلب الإرسال ✅", "ok");
         }catch(e){
           toast(String(e.message||e), "err");
@@ -807,7 +918,7 @@
       };
     };
 
-    document.getElementById("closeApp").onclick = ()=>{
+    document.getElementById("closeApp").onclick = ()=> {
       const t = tg();
       if (t) t.close();
       else window.close();
@@ -827,12 +938,15 @@
       }
     })();
 
-    document.getElementById("open").onclick = async ()=>{
-      try{ await openWallet(); }
-      catch(e){ showGateErr(String(e.message||e)); }
+    document.getElementById("open").onclick = async ()=> {
+      try{
+        await loadApiJson();
+        await openWallet();
+      }catch(e){
+        showGateErr(String(e.message||e));
+      }
     };
 
-    /* ✅ منع Gesture Zoom خصوصاً على iOS */
     document.addEventListener("gesturestart", (e)=>{ e.preventDefault(); });
     document.addEventListener("gesturechange", (e)=>{ e.preventDefault(); });
     document.addEventListener("gestureend", (e)=>{ e.preventDefault(); });

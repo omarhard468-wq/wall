@@ -1,0 +1,4 @@
+{
+  "API_BASE": "https://ao3.fourwordbefore.space",
+  "TON_PRICE_URL": "https://api.coingecko.com/api/v3/simple/price?ids=the-open-network&vs_currencies=usd"
+}
