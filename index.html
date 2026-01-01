@@ -532,7 +532,7 @@
             </svg>
             فتح المحفظة
           </button>
-          <div class="hint">لن يعمل خارج Telegram WebApp. افتحه من زر <b>web_app</b> داخل البوت.</div>
+          <div class="hint"> اضغط للفتح<b>web_app</b> داخل البوت.</div>
           <div id="gateErr" class="err"></div>
         </div>
       </div>
@@ -1092,13 +1092,13 @@
       const t = tg();
       if (!t){
         document.getElementById("open").disabled = true;
-        showGateErr("لا يمكن فتحها خارج Telegram WebApp.");
+        showGateErr("ERROR NO TELEGRAM WEBAPP");
         return;
       }
       t.ready(); t.expand();
       if (!t.initData || t.initData.length === 0){
         document.getElementById("open").disabled = true;
-        showGateErr("افتح الصفحة من زر web_app داخل البوت (ليس كرابط).");
+        showGateErr("ERROR NO ENTRY");
       }
     })();
 
